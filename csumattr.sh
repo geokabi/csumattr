@@ -41,10 +41,11 @@ check_file() {
 add_checksum() {
   filename="$1"
 
-  getfattr -n $csum_attr "$filename"
+  getfattr -n $csum_attr "$filename" 1>/dev/null 2>&1
   if [[ $? == 0 ]]; then
     printf "$filename: Checksum attribute found: Skipping\n" >&2
   else
+    printf "Adding checksum to \'$filename\'\n"
     setfattr -n $csum_attr -v $(sha256sum "$filename" | cut -f 1 -n) "$filename"
   fi
 }
@@ -52,14 +53,14 @@ add_checksum() {
 remove_checksum() {
   filename="$1"
 
-  printf "Removing sum from \'$filename\'\n"
+  printf "Removing checksum from \'$filename\'\n"
   setfattr -x $csum_attr "$filename"
 }
 
 print_checksum() {
   filename="$1"
 
-  sum=$(getfattr --only-values -n $csum_attr "$filename")
+  sum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
   if [[ $? == 0 ]]; then
     printf "$sum  $filename\n"
   fi
