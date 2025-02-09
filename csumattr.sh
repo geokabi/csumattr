@@ -120,14 +120,14 @@ if [[ -z $action ]]; then
 fi
 
 shift $((OPTIND-1))
-check_path=$1
+check_path="$1"
 
-if [[ -d $check_path ]]; then
-  find $check_path -type f -print0 | while read -d $'\0' esc_file
+if [[ -d "$check_path" ]]; then
+  find "$check_path" -type f -print0 | while read -d $'\0' esc_file
   do
     process_file "$esc_file"
   done;
-elif [[ -f $check_path ]]; then
+elif [[ -f "$check_path" ]]; then
   process_file "$check_path"
 else
   printf "Error: file not found: $check_path\n" >&2
