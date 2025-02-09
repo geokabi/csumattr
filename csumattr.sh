@@ -10,12 +10,12 @@ action=""
 usage() {
   printf \
 "Usage:
-$0 -a|-c|-p|-r|-h  path
+$0 -a|-c|-p|-r|-h path
 
  -a   Add checksums to the files that do not have them yet
  -c   Compare the stored checksum with the SHA256 hash of the file
  -p   Print the stored SHA256 checksums
- -r   Remove the extended attribute from the files
+ -d   Remove the extended attribute from the files
  -h   Print this help
 
 The SHA256 checksums are stored in the user.sha256sum extended file attribute.
