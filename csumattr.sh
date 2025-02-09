@@ -46,7 +46,7 @@ add_checksum() {
     printf "$filename: Checksum attribute found: Skipping\n" >&2
   else
     printf "Adding checksum to \'$filename\'\n"
-    setfattr -n $csum_attr -v $(sha256sum "$filename" | cut -f 1 -n) "$filename"
+    setfattr -n $csum_attr -v $(sha256sum "$filename" | cut -d " " -f 1) "$filename"
   fi
 }
 
