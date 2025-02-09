@@ -4,7 +4,7 @@
 #
 
 csum_attr="user.sha256sum"
-find_files_in_path_opts="-mount"
+find_files_in_path_opts="-mount -not -empty"
 check_path="."
 action=""
 
@@ -20,7 +20,8 @@ $0 -a|-c|-p|-r|-h path
  -h   Print this help
 
 The SHA256 checksums are stored in the user.sha256sum extended file attribute.
-If <path> is a directory it is traversed recursively (Only in the same filesystem).\n" >&2
+If <path> is a directory it is traversed recursively (Only in the same filesystem).
+Ignores empty files.\n" >&2
 }
 
 check_file() {
@@ -129,7 +130,9 @@ if [[ -d "$check_path" ]]; then
     process_file "$esc_file"
   done;
 elif [[ -f "$check_path" ]]; then
-  process_file "$check_path"
+  if [[ -s "$check_path" ]]; then
+    process_file "$check_path"
+  fi
 else
   printf "Error: file not found: $check_path\n" >&2
   exit 2
