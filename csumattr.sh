@@ -7,16 +7,18 @@ csum_attr="user.sha256sum"
 find_files_in_path_opts="-mount -not -empty"
 check_path="."
 action=""
+verbose=0
 
 usage() {
   printf \
 "Usage:
-$0 -a|-c|-p|-r|-h path
+$0 -a|-c|-r|-p|-v|-h path
 
  -a   Add checksums to the files that do not have them yet
  -c   Compare the stored checksum with the SHA256 hash of the file
+ -r   Remove the extended attribute from the files
  -p   Print the stored SHA256 checksums
- -d   Remove the extended attribute from the files
+ -v   Verbose output
  -h   Print this help
 
 The SHA256 checksums are stored in the user.sha256sum extended file attribute.
@@ -24,12 +26,27 @@ If <path> is a directory it is traversed recursively (Only in the same filesyste
 Ignores empty files.\n" >&2
 }
 
+
+printf_if_verbose() {
+  msg="$1"
+
+  if [[ $verbose -ne 0 ]]; then
+    printf "$msg"
+  fi
+}
+
 check_file() {
   filename="$1"
 
+  if [[ $verbose -ne 0 ]]; then
+    sha256sum_quiet=""
+  else
+    sha256sum_quiet="--status"
+  fi
+
   sum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
   if [[ $? == 0 ]]; then
-    echo "$sum  $filename" | sha256sum -c 2>/dev/null
+    echo "$sum  $filename" | sha256sum $sha256sum_quiet -c 2>/dev/null
     if [[ $? != 0 ]]; then
       printf "$filename: Checksum mismatch\n" >&2
       err=3 # worst case of all: replace errorcode with 3
@@ -47,7 +64,7 @@ add_checksum() {
   if [[ $? == 0 ]]; then
     printf "$filename: Checksum attribute found: Skipping\n" >&2
   else
-    printf "Adding checksum to \'$filename\'\n"
+    printf_if_verbose "Adding checksum to \'$filename\'\n"
     setfattr -n $csum_attr -v $(sha256sum "$filename" | cut -d " " -f 1) "$filename"
   fi
 }
@@ -55,7 +72,7 @@ add_checksum() {
 remove_checksum() {
   filename="$1"
 
-  printf "Removing checksum from \'$filename\'\n"
+  printf_if_verbose  "Removing checksum from \'$filename\'\n"
   setfattr -x $csum_attr "$filename"
 }
 
@@ -65,6 +82,8 @@ print_checksum() {
   sum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
   if [[ $? == 0 ]]; then
     printf "$sum  $filename\n"
+  else
+    printf "$filename: Checksum attribute not found\n" >&2
   fi
 }
 
@@ -90,7 +109,7 @@ process_file() {
 }
 
 # main
-while getopts "acvhdp" opt; do
+while getopts "acrpvh" opt; do
   case $opt in
     a)
       action="add"
@@ -98,11 +117,14 @@ while getopts "acvhdp" opt; do
     c)
       action="check"
       ;;
-    d)
+    r)
       action="remove"
       ;;
     p)
       action="print"
+      ;;
+    v)
+      verbose=1
       ;;
     h)
       usage
@@ -116,7 +138,7 @@ while getopts "acvhdp" opt; do
 done
 
 if [[ -z $action ]]; then
-  printf "The -a or -c option must be specified.\n\n" >&2
+  printf "One of the action options (-a|-c|-r|-p) must be specified.\n\n" >&2
   usage
   exit 1
 fi
