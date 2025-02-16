@@ -12,11 +12,12 @@ verbose=0
 usage() {
   printf \
 "Usage:
-$0 -a|-c|-r|-p|-v|-h path
+$0 -a|-c|-r|-u|-p|-v|-h path
 
  -a   Add checksums to the files that do not have them yet
  -c   Compare the stored checksum with the SHA256 hash of the file
  -r   Remove the extended attribute from the files
+ -u   Update the stored checksum to files that have a different checksum than the stored one
  -p   Print the stored SHA256 checksums
  -v   Verbose output
  -h   Print this help
@@ -44,9 +45,9 @@ check_file() {
     sha256sum_quiet="--status"
   fi
 
-  sum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
+  csum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
   if [[ $? == 0 ]]; then
-    echo "$sum  $filename" | sha256sum $sha256sum_quiet -c 2>/dev/null
+    echo "$csum  $filename" | sha256sum $sha256sum_quiet -c 2>/dev/null
     if [[ $? != 0 ]]; then
       printf "$filename: Checksum mismatch\n" >&2
       err=3 # worst case of all: replace errorcode with 3
@@ -76,12 +77,27 @@ remove_checksum() {
   setfattr -x $csum_attr "$filename"
 }
 
+update_checksum() {
+  filename="$1"
+
+  csum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
+  if [[ $? == 0 ]]; then
+    echo "$csum  $filename" | sha256sum --status -c 1>/dev/null 2>&1
+    if [[ $? != 0 ]]; then
+      printf_if_verbose  "$filename: Updating checksum\n"
+      setfattr -n $csum_attr -v $(sha256sum "$filename" | cut -d " " -f 1) "$filename"
+    fi
+  else
+    printf "$filename: Checksum attribute not found\n" >&2
+  fi
+}
+
 print_checksum() {
   filename="$1"
 
-  sum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
+  csum=$(getfattr --only-values -n $csum_attr "$filename" 2>/dev/null)
   if [[ $? == 0 ]]; then
-    printf "$sum  $filename\n"
+    printf "$csum  $filename\n"
   else
     printf "$filename: Checksum attribute not found\n" >&2
   fi
@@ -100,6 +116,9 @@ process_file() {
     "remove")
       remove_checksum "$filename"
       ;;
+    "update")
+      update_checksum "$filename"
+      ;;
     "print")
       print_checksum "$filename"
       ;;
@@ -109,7 +128,7 @@ process_file() {
 }
 
 # main
-while getopts "acrpvh" opt; do
+while getopts "acrupvh" opt; do
   case $opt in
     a)
       action="add"
@@ -119,6 +138,9 @@ while getopts "acrpvh" opt; do
       ;;
     r)
       action="remove"
+      ;;
+    u)
+      action="update"
       ;;
     p)
       action="print"
@@ -138,7 +160,7 @@ while getopts "acrpvh" opt; do
 done
 
 if [[ -z $action ]]; then
-  printf "One of the action options (-a|-c|-r|-p) must be specified.\n\n" >&2
+  printf "One of the action options (-a|-c|-r|-u|-p) must be specified.\n\n" >&2
   usage
   exit 1
 fi
